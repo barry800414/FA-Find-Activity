@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useContext, useEffect, useMemo } from "react";
 import styled from "@emotion/styled";
 import Button from "../../components/common/Button";
 import Header from "../../components/common/Header";
@@ -58,6 +58,7 @@ const MoreActivityButton = styled(Button)`
 
 const Home = () => {
   const { modifiedData } = useContext(AuthContext);
+  // dataNum 是每頁的活動數嗎？  它會被改變嗎？ 如果不會，不需要存成 state，你用一個變數放在 component 外就好。
   const [dataNum, setDataNum] = useState(0);
   const [categoryNum, setCategoryNum] = useState(6);
   const [filteredInput, setFilteredInput] = useState(null);
@@ -75,27 +76,26 @@ const Home = () => {
     setFilteredInput(e.target.value);
   };
 
-  console.log(filteredInput);
+  // 一般來說，我們通常 component 裡面存的是資料，而不是直接存 component
+  // 所以這邊我改寫成，把你要顯示的活動卡片的資料先 filter 好，到下面 return
+  // 的時候才 render
 
-  const ActivityCardLists = modifiedData
-    .filter(
-      setFilteredInput === null
-        ? (data) => data
-        : (data) => data.title === filteredInput
-    )
-    .map((data) => (
-      <ActivityCard
-        imageUrl={data.imageUrl}
-        title={data.title}
-        time={data.endDate}
-        locationName={data.showInfo[0].locationName}
-        description={data.descriptionFilterHtml}
-        category={data.category}
-        id={data.id}
-      />
-    ))
-    .filter((data) => Number(data.props.category) === categoryNum)
-    .slice(0, dataNum);
+  const foundActivityCards = useMemo(() => {
+    return modifiedData
+      .filter((data) => {
+        if (filteredInput === null) {
+          // 這邊可以檢查 searchBar 裡面有沒有值，如果沒有，那就不過濾內容
+          return true;
+        } else {
+          return data.title && data.title.indexOf(filteredInput) >= 0;
+          // 這邊可以用字串的搜尋，只要有包含，就顯示出來。
+          // 例如原本標題："《潛態》阮至立雕塑個展"
+          // 只要有打"個展"，就可以搜尋到
+        }
+      })
+      .filter((data) => Number(data.category) === categoryNum)
+      .slice(0, dataNum);
+  }, [modifiedData, filteredInput, categoryNum, dataNum]);
 
   useEffect(() => {
     handleShowMoreActivity();
@@ -108,7 +108,20 @@ const Home = () => {
         <SearchBar handleChange={handleUpdateInput} />
         <Carousel />
         <Category handleChangeCategory={handleChangeCategory} />
-        <ActivityContainer>{ActivityCardLists}</ActivityContainer>
+        <ActivityContainer>
+          {foundActivityCards.map((data) => (
+            <ActivityCard
+              imageUrl={data.imageUrl}
+              title={data.title}
+              time={data.endDate}
+              locationName={data.showInfo[0].locationName}
+              description={data.descriptionFilterHtml}
+              category={data.category}
+              id={data.id}
+              key={data.id} // render an array of component 的時候，要加上 key，不然效能會不好
+            />
+          ))}
+        </ActivityContainer>
         <MoreActivityButtonContainer>
           <MoreActivityButton onClick={handleShowMoreActivity}>
             尋找更多活動
